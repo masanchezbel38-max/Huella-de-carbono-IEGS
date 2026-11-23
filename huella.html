@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0}</style></head>
+<body>
+<title>Mi Huella Santander</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: encabezado grande, formulario con espacios en blanco a la izquierda, resultado fijo a la derecha y, debajo, el registro de mediciones con descarga a hoja de cálculo. */
+:root{
+  --bg:#EDF3EF; --surface:#FFFFFF; --ink:#10282A; --muted:#51675F; --line:#D3DFD8; --soft:#E2EDE7;
+  --accent:#0A6C5A; --accent-ink:#FFFFFF; --good:#1B8756; --warn:#A8620F; --danger:#B3352B;
+  --c-energia:#E0A106; --c-gas:#E0602E; --c-transporte:#2F6DDB; --c-residuos:#8657C6;
+  --c-agua:#12A0B6; --c-papel:#6FA024; --c-alimentos:#C84B79;
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'DM Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'DM Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1815; --surface:#13231F; --ink:#E5F0EA; --muted:#9BB2A8; --line:#243832; --soft:#1A2E28;
+    --accent:#4ED3A6; --accent-ink:#06241B; --good:#4FD08F; --warn:#F0B35A; --danger:#F27A70;
+    --c-energia:#F2B73A; --c-gas:#F37F50; --c-transporte:#6195F2; --c-residuos:#AA8BE2;
+    --c-agua:#3DC4D9; --c-papel:#9DC94B; --c-alimentos:#E27299;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1815; --surface:#13231F; --ink:#E5F0EA; --muted:#9BB2A8; --line:#243832; --soft:#1A2E28;
+  --accent:#4ED3A6; --accent-ink:#06241B; --good:#4FD08F; --warn:#F0B35A; --danger:#F27A70;
+  --c-energia:#F2B73A; --c-gas:#F37F50; --c-transporte:#6195F2; --c-residuos:#AA8BE2;
+  --c-agua:#3DC4D9; --c-papel:#9DC94B; --c-alimentos:#E27299;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-block:28px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1160px;margin:0 auto}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 70%,transparent);outline-offset:2px}
+
+.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--accent)}
+.head{display:grid;gap:14px;margin-bottom:26px}
+.head h1{font-size:clamp(2.2rem,6vw,4.1rem);line-height:1;letter-spacing:-.025em;font-weight:700;max-width:14ch}
+.head p{margin:0;max-width:62ch;color:var(--muted);font-size:1.05rem}
+.privacy{display:inline-flex;gap:8px;align-items:center;width:fit-content;max-width:100%;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;color:var(--muted)}
+.privacy i{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"in res";gap:24px;align-items:start}
+#inp{grid-area:in;display:grid;gap:14px;min-width:0}
+#res{grid-area:res;min-width:0;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;scrollbar-width:thin}
+@media (max-width:959px){
+  .grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"res" "in"}
+  #res{position:static;max-height:none;overflow:visible}
+  body{padding-bottom:96px}
+}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0}
+.chead{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.ctitle{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--cat);flex:none;margin-top:6px}
+.ctitle h3{font-size:1.2rem;font-weight:700;letter-spacing:-.01em}
+.ctitle p{margin:2px 0 0;color:var(--muted);font-size:.88rem}
+.hint{margin:0;font-size:.8rem;color:var(--muted)}
+
+.pf{display:grid;gap:6px;padding-top:14px;border-top:1px dashed var(--line)}
+.pf:first-of-type{border-top:0;padding-top:0}
+.pf label{font-weight:500}
+.pf input,.pf select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;min-width:0}
+.pf input[type=number]{font-family:var(--f-mono)}
+.pf input::placeholder{color:color-mix(in srgb,var(--muted) 70%,transparent)}
+.pf .nb{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.pf .nb span{font-size:.78rem;color:var(--muted);white-space:nowrap}
+
+.res{padding:22px}
+.donutwrap{position:relative;width:min(100%,210px);aspect-ratio:1;margin:12px auto 6px}
+.donutwrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring{fill:none;stroke:var(--line);stroke-width:24}
+.sg{fill:none;stroke-width:24;transition:stroke-dasharray .7s cubic-bezier(.2,.7,.2,1),stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)}
+.dcenter{position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:0 20%}
+.dcenter b{font-family:var(--f-display);font-size:clamp(1.9rem,6vw,2.5rem);font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.dcenter span{font-size:.75rem;color:var(--muted);margin-top:4px}
+.mbars{display:grid;gap:10px;margin:14px 0}
+.mb{display:grid;gap:4px}
+.mb>div:first-child{display:flex;justify-content:space-between;gap:10px;font-size:.9rem}
+.mb>div:first-child span:last-child{font-family:var(--f-mono);font-size:.85rem;font-variant-numeric:tabular-nums}
+.mb .bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+.mb .bar i{display:block;height:100%;width:0;background:var(--cat);transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.mb .sw{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--cat);margin-right:8px}
+.mh{font-family:var(--f-display);font-size:1.05rem;margin:18px 0 8px}
+.eqs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px}
+.eq,.kpi{background:var(--soft);border-radius:14px;padding:12px}
+.eq b,.kpi b{display:block;font-family:var(--f-display);font-size:1.5rem;line-height:1.1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.eq span,.kpi span{font-size:.78rem;color:var(--muted);display:block;margin-top:4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px}
+.cks{display:grid;gap:8px}
+.ck{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;font-size:.92rem}
+.ck input{accent-color:var(--accent);width:18px;height:18px;margin-top:2px;flex:none}
+.ck:has(input:checked){background:var(--soft);border-color:var(--accent)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;cursor:pointer;font-weight:500;font-size:.88rem}
+.btn:hover{background:var(--soft)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.pri:hover{background:var(--accent);filter:brightness(1.08)}
+.btn.warn{border-color:var(--danger);color:var(--danger)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.big{margin-top:16px;width:100%;padding:13px 18px;font-size:1rem;font-weight:700}
+
+/* Registro */
+#log{margin-top:24px;display:grid;gap:16px}
+#log h2{font-size:clamp(1.6rem,3.5vw,2.3rem);letter-spacing:-.02em}
+.loghead{display:flex;flex-wrap:wrap;gap:14px 24px;justify-content:space-between;align-items:flex-end}
+.note{font-size:.88rem;color:var(--muted);margin:6px 0 0;max-width:62ch}
+.loghead .acts{margin:0}
+.trend svg{display:block;width:100%;height:auto;max-height:240px}
+.trend text{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+.trend .gl{stroke:var(--line);stroke-width:1}
+.trend .ln{fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.trend .ar{fill:var(--accent);opacity:.12}
+.trend .pt{fill:var(--surface);stroke:var(--accent);stroke-width:3}
+.trend .pt.last{fill:var(--accent)}
+.trend .lab{fill:var(--ink);font-weight:500;font-size:12px}
+.trendtitle{font-size:.85rem;color:var(--muted);margin:0 0 4px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:.85rem}
+th,td{padding:8px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;background:var(--soft)}
+td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+th:nth-child(-n+4),td:nth-child(-n+4){text-align:left}
+td:nth-child(2),td:nth-child(3),td:nth-child(4){font-family:var(--f-body)}
+tr:last-child td{border-bottom:0}
+td.tot{font-weight:500;color:var(--ink)}
+.xbtn{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;padding:2px 6px;border-radius:6px}
+.xbtn:hover{color:var(--danger);background:var(--soft)}
+
+details.assump{margin-top:24px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px 20px}
+details.assump summary{cursor:pointer;padding:14px 0;font-weight:700;font-family:var(--f-display);font-size:1.15rem}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px 22px;padding:6px 0 18px;font-size:.88rem}
+.fgrid div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:4px 0}
+.fgrid b{font-family:var(--f-mono);font-weight:500;white-space:nowrap}
+footer{margin-top:22px;font-size:.82rem;color:var(--muted);max-width:90ch}
+
+.minibar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:none;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-top:1px solid var(--line);
+  padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.minibar b{font-family:var(--f-display);font-size:1.3rem;font-variant-numeric:tabular-nums}
+.minibar small{display:block;color:var(--muted);font-size:.75rem}
+@media (max-width:959px){.minibar{display:flex}}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:.88rem;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:30;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div class="eyebrow">Institución Educativa General Santander · Soacha</div>
+    <h1>Mi huella de carbono</h1>
+    <p>Escribe tus datos en los espacios en blanco y mira cuánto CO₂ produces cada mes. Guarda cada medición y descarga todas en una hoja de cálculo.</p>
+    <div class="privacy"><i></i>Tus mediciones se guardan solo en este navegador de este computador. No se envían a ningún sitio.</div>
+  </header>
+
+  <main class="grid">
+    <aside id="res" aria-label="Tu resultado"></aside>
+    <div id="inp"></div>
+  </main>
+
+  <section id="log" class="card" aria-labelledby="log-h">
+    <div class="loghead">
+      <div>
+        <div class="eyebrow">Registro</div>
+        <h2 id="log-h">Mis mediciones</h2>
+        <p class="note">Cada vez que tocas «Guardar medición» se agrega una fila con tus datos y tu resultado. Con varias mediciones ves cómo cambia tu huella.</p>
+      </div>
+      <div class="acts">
+        <button class="btn pri" type="button" id="b-xlsx">Descargar hoja de cálculo (.xlsx)</button>
+        <button class="btn" type="button" id="b-csv">Descargar .csv</button>
+        <button class="btn" type="button" id="b-copy" hidden>Copiar tabla</button>
+        <button class="btn warn" type="button" id="b-clear">Borrar registro</button>
+      </div>
+    </div>
+    <p class="hint" id="dl-note" hidden></p>
+    <div class="trend" id="trend"></div>
+    <div class="tablewrap" id="tablewrap" hidden><table id="tbl"></table></div>
+    <p class="hint" id="log-empty">Aún no hay mediciones. Completa los espacios y toca «Guardar medición».</p>
+  </section>
+
+  <details class="assump">
+    <summary>Cómo se calcula</summary>
+    <p class="note" style="margin:0 0 12px">Se usan factores de emisión de referencia (aproximados). Tu parte de la casa se obtiene dividiendo el consumo entre las personas que viven en ella. Verifica los factores vigentes, por ejemplo el de la UPME, antes de usar los resultados en un informe oficial.</p>
+    <div class="fgrid" id="fgrid"></div>
+  </details>
+
+  <footer>Estimación orientativa en kg de CO₂ equivalente (CO₂e). Incluye transporte al colegio, energía, gas, agua, residuos, alimentación y papel.</footer>
+</div>
+
+<div class="minibar">
+  <div><small>Tu huella</small><b id="mb-v">0 kg/mes</b></div>
+  <button class="btn pri" type="button" id="mb-save">Guardar medición</button>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var fmtN=function(n,d){d=d||0;return n.toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d})};
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var KEY='huella-personal-v1', MAXROWS=300;
+
+var F={fe:0.126,glp:3.0,kgCil:18.14,publico:0.07,ruta:0.06,moto:0.11,carro:0.17,relleno:0.58,agua:0.35,papel:3.2,comidaCarne:2,comidaVeg:0.7,meses:10,arbol:22};
+var FLAB=[['fe','Electricidad de la red','kg CO₂e/kWh'],['glp','Gas licuado (GLP)','kg CO₂e/kg'],['kgCil','Cilindro de 40 lb','kg'],['publico','Bus público','kg CO₂e/pasajero·km'],['ruta','Ruta escolar','kg CO₂e/pasajero·km'],['moto','Moto','kg CO₂e/pasajero·km'],['carro','Carro particular','kg CO₂e/pasajero·km'],['relleno','Residuos a relleno','kg CO₂e/kg'],['agua','Agua potable','kg CO₂e/m³'],['papel','Papel','kg CO₂e/resma'],['comidaCarne','Comida con carne','kg CO₂e/comida'],['comidaVeg','Comida sin carne','kg CO₂e/comida'],['meses','Meses de clase al año','meses'],['arbol','Absorción de un árbol','kg CO₂/año']];
+var CAR_KM=0.17;
+
+var CATS=[
+ {k:'transporte',n:'Transporte'},{k:'energia',n:'Energía eléctrica'},{k:'gas',n:'Gas de cocina'},{k:'agua',n:'Agua'},
+ {k:'residuos',n:'Residuos'},{k:'alimentos',n:'Alimentación'},{k:'papel',n:'Papel'}
+];
+var MODES={'':'','pie':'A pie','bici':'Bicicleta','publico':'Bus público','ruta':'Ruta escolar','moto':'Moto','carro':'Carro particular'};
+var COMMIT=[
+ {k:'bici',l:'Ir a pie o en bicicleta al colegio'},
+ {k:'carne',l:'Comer 3 comidas con carne menos cada semana'},
+ {k:'papel',l:'Imprimir la mitad de las hojas'},
+ {k:'agua',l:'Duchas más cortas para gastar 20 % menos agua'}
+];
+
+/* ---------- Cálculo ---------- */
+function num(id){var x=parseFloat($('#f-'+id).value);return isFinite(x)&&x>0?x:0}
+function blank(id){return $('#f-'+id).value.trim()===''}
+function calc(c){
+  var n=Math.max(1,num('pers')),o={};
+  var mk=$('#f-mode').value;
+  var fac=(mk==='publico'||mk==='ruta'||mk==='moto'||mk==='carro')?F[mk]:0;
+  if(c.bici) fac=0;
+  o.transporte=num('dist')*2*Math.min(7,num('dias'))*52/12*fac;
+  o.energia=num('kwh')/n*F.fe;
+  o.gas=num('cil')*F.kgCil*F.glp/n;
+  o.agua=num('agua')/n*F.agua*(c.agua?0.8:1);
+  o.residuos=num('bolsas')*3*52/12/n*F.relleno;
+  if(blank('carne')) o.alimentos=0;
+  else{var ca=Math.max(0,Math.min(21,num('carne'))-(c.carne?3:0));o.alimentos=(ca*F.comidaCarne+(21-ca)*F.comidaVeg)*52/12;}
+  o.papel=num('hojas')/500*F.papel*(c.papel?0.5:1);
+  return o;
+}
+var monthly=function(o){return CATS.reduce(function(a,c){return a+o[c.k]},0)};
+var annual=function(o){return CATS.reduce(function(a,c){return a+o[c.k]*(c.k==='transporte'?F.meses:12)},0)};
+var round=function(x,d){var p=Math.pow(10,d);return Math.round(x*p)/p};
+function commits(){var c={};COMMIT.forEach(function(m){c[m.k]=$('#c-'+m.k).checked});return c}
+
+/* ---------- Interfaz ---------- */
+function pf(id,label,unit,hint,max){
+  return '<div class="pf"><label for="f-'+id+'">'+label+'</label><div class="nb"><input type="number" inputmode="decimal" id="f-'+id+'" min="0"'+(max?' max="'+max+'"':'')+'><span>'+unit+'</span></div>'+(hint?'<p class="hint">'+hint+'</p>':'')+'</div>';
+}
+function card(cat,title,sub,body){
+  return '<article class="card" style="--cat:'+cat+'"><div class="chead"><div class="ctitle"><span class="dot"></span><div><h3>'+title+'</h3><p>'+sub+'</p></div></div></div>'+body+'</article>';
+}
+function build(){
+  $('#inp').innerHTML=
+   card('var(--accent)','Tus datos','Escribe tu nombre completo, como aparece en la lista del curso. Aparece en tu registro y en el archivo.',
+    '<div class="pf"><label for="f-name">Nombre completo</label><input type="text" id="f-name" maxlength="60" autocomplete="name"></div>'+
+    '<div class="pf"><label for="f-grade">Grado</label><input type="text" id="f-grade" maxlength="12" autocomplete="off"></div>')+
+   card('var(--c-transporte)','Tu trayecto al colegio','Cómo llegas y cuánto recorres.',
+    '<div class="pf"><label for="f-mode">¿Cómo llegas al colegio?</label><select id="f-mode"><option value="">Elige una opción</option><option value="pie">A pie</option><option value="bici">Bicicleta</option><option value="publico">Bus público</option><option value="ruta">Ruta escolar</option><option value="moto">Moto</option><option value="carro">Carro particular</option></select></div>'+
+    pf('dist','Distancia de ida de tu casa al colegio','km','Si no sabes, un estimado sirve: 1 km son unos 12 minutos caminando.')+
+    pf('dias','Días que vas al colegio por semana','días','',7))+
+   card('var(--c-energia)','Tu casa','Pide a tu familia las facturas y escribe lo que veas.',
+    pf('pers','Personas que viven en tu casa','personas','Tu parte se calcula dividiendo el consumo entre estas personas. Si lo dejas vacío, se cuenta toda la casa como tuya.')+
+    pf('kwh','Energía eléctrica de la casa','kWh/mes','Aparece en la factura de energía.')+
+    pf('cil','Cilindros de gas de la casa','cilindros/mes','Cilindro de 40 lb. Si usas gas natural, déjalo vacío.')+
+    pf('agua','Agua de la casa','m³/mes','Aparece en la factura del acueducto.')+
+    pf('bolsas','Bolsas de basura que saca tu casa','bolsas/semana','Cada bolsa se cuenta como 3 kg aproximadamente.'))+
+   card('var(--c-alimentos)','Lo que comes e imprimes','Cuenta una semana normal.',
+    pf('carne','Comidas con carne en la semana','de 21 comidas','Desayunos, almuerzos y cenas con carne, pollo o pescado.',21)+
+    pf('hojas','Hojas que imprimes o fotocopias','hojas/mes','Tareas, guías y trabajos.'));
+
+  var cks=COMMIT.map(function(m){return '<label class="ck"><input type="checkbox" id="c-'+m.k+'"><span>'+m.l+'</span></label>'}).join('');
+  $('#res').innerHTML='<div class="card res">'+
+   '<div class="eyebrow" id="who">Tu huella personal</div>'+
+   '<div class="donutwrap"><svg viewBox="0 0 200 200" id="donut" role="img" aria-label="Distribución de tu huella por categoría"><circle class="ring" cx="100" cy="100" r="76"></circle></svg>'+
+   '<div class="dcenter"><b id="bigN">0</b><span>kg CO₂e al mes</span></div></div>'+
+   '<p class="hint" id="empty" style="text-align:center">Completa los espacios en blanco y aquí aparece tu huella.</p>'+
+   '<div class="mbars">'+CATS.map(function(c){return '<div class="mb" style="--cat:var(--c-'+c.k+')"><div><span><i class="sw"></i>'+c.n+'</span><span id="mv-'+c.k+'">0 kg</span></div><div class="bar"><i id="mw-'+c.k+'"></i></div></div>'}).join('')+'</div>'+
+   '<div class="eqs" id="eqs"></div>'+
+   '<h4 class="mh">Elige tus compromisos</h4><div class="cks">'+cks+'</div>'+
+   '<div class="kpis" id="kpis"></div>'+
+   '<button class="btn pri big" type="button" id="b-save">Guardar medición</button>'+
+   '<div class="acts"><button class="btn" type="button" id="b-goto">Ver mis mediciones</button><button class="btn" type="button" id="b-wipe">Limpiar espacios</button></div>'+
+   '</div>';
+  var svg=$('#donut'),NS='http://www.w3.org/2000/svg';
+  CATS.forEach(function(c){
+    var ci=document.createElementNS(NS,'circle');
+    ci.setAttribute('cx',100);ci.setAttribute('cy',100);ci.setAttribute('r',76);
+    ci.setAttribute('class','sg');ci.setAttribute('id','sg-'+c.k);ci.setAttribute('stroke','var(--c-'+c.k+')');
+    ci.setAttribute('stroke-dasharray','0 1000');svg.appendChild(ci);
+  });
+  $('#fgrid').innerHTML=FLAB.map(function(a){return '<div><span>'+a[1]+'</span><b>'+fmtN(F[a[0]],a[0]==='fe'?3:2).replace(/,00$/,'')+' '+a[2]+'</b></div>'}).join('');
+}
+
+/* ---------- Animación ---------- */
+var shown=0,raf=0;
+function tween(to){
+  cancelAnimationFrame(raf);
+  var paint=function(){$('#bigN').textContent=fmtN(shown,1)};
+  if(reduce){shown=to;paint();return;}
+  var from=shown,t0=performance.now(),d=500;
+  (function step(t){var p=Math.min(1,(t-t0)/d),e=1-Math.pow(1-p,3);shown=from+(to-from)*e;paint();if(p<1)raf=requestAnimationFrame(step);})(t0);
+}
+
+/* ---------- Actualización ---------- */
+function update(){
+  var c=commits(),base=calc({}),plan=calc(c),tot=monthly(base),ptot=monthly(plan);
+  var name=$('#f-name').value.trim();
+  $('#who').textContent=name?'Huella de '+name:'Tu huella personal';
+  $('#empty').hidden=tot>0;
+  tween(tot);
+  var C=2*Math.PI*76,cum=0;
+  CATS.forEach(function(k){
+    var v=base[k.k],frac=tot>0?v/tot:0,len=frac*C,gap=len>6?2:0,L=Math.max(0,len-gap);
+    var sg=$('#sg-'+k.k);
+    sg.setAttribute('stroke-dasharray',L.toFixed(2)+' '+(C-L).toFixed(2));
+    sg.setAttribute('stroke-dashoffset',(-cum*C).toFixed(2));
+    cum+=frac;
+    $('#mv-'+k.k).textContent=fmtN(v,1)+' kg';
+    $('#mw-'+k.k).style.width=(frac*100)+'%';
+  });
+  var an=annual(base);
+  $('#eqs').innerHTML=
+   '<div class="eq"><b>'+fmtN(an/F.arbol,1)+'</b><span>árboles para absorber tu huella en un año</span></div>'+
+   '<div class="eq"><b>'+fmtN(an/CAR_KM,0)+'</b><span>km en carro al año</span></div>'+
+   '<div class="eq"><b>'+fmtN(an/1000,2)+'</b><span>toneladas de CO₂e al año</span></div>';
+  var saved=tot-ptot,pct=tot>0?saved/tot*100:0,anSaved=an-annual(plan);
+  $('#kpis').innerHTML=
+   '<div class="kpi"><b style="color:var(--good)">−'+fmtN(pct,0)+' %</b><span>con tus compromisos</span></div>'+
+   '<div class="kpi"><b>'+fmtN(saved,1)+' kg</b><span>menos cada mes</span></div>'+
+   '<div class="kpi"><b>'+fmtN(anSaved/F.arbol,1)+'</b><span>árboles que dejas de necesitar al año</span></div>';
+  $('#mb-v').textContent=fmtN(tot,1)+' kg/mes';
+}
+
+/* ---------- Registro ---------- */
+var rows=[];
+function loadRows(){try{var r=JSON.parse(localStorage.getItem(KEY)||'[]');if(Array.isArray(r))rows=r.slice(0,MAXROWS)}catch(e){rows=[]}}
+function saveRows(){try{localStorage.setItem(KEY,JSON.stringify(rows))}catch(e){}}
+function stamp(){var d=new Date(),p=function(n){return (n<10?'0':'')+n};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())}
+function numOrBlank(id){return blank(id)?'':num(id)}
+function snapshot(){
+  var c=commits(),base=calc({}),k={};
+  CATS.forEach(function(x){k[x.k]=round(base[x.k],2)});
+  var picked=COMMIT.filter(function(m){return c[m.k]}).map(function(m){return m.l}).join('; ');
+  return {t:stamp(),nombre:$('#f-name').value.trim(),grado:$('#f-grade').value.trim(),modo:MODES[$('#f-mode').value]||'',
+    dist:numOrBlank('dist'),dias:numOrBlank('dias'),pers:numOrBlank('pers'),kwh:numOrBlank('kwh'),cil:numOrBlank('cil'),agua:numOrBlank('agua'),bolsas:numOrBlank('bolsas'),carne:numOrBlank('carne'),hojas:numOrBlank('hojas'),
+    k:k,tot:round(monthly(base),2),anio:round(annual(base)/1000,3),comp:picked};
+}
+var HEAD=['N°','Fecha','Nombre completo','Grado','Cómo llega al colegio','Distancia de ida (km)','Días de clase por semana','Personas en la casa','Energía de la casa (kWh/mes)','Cilindros de gas (por mes)','Agua de la casa (m³/mes)','Bolsas de basura (por semana)','Comidas con carne (por semana)','Hojas impresas (por mes)',
+ 'Transporte (kg CO2e/mes)','Energía eléctrica (kg CO2e/mes)','Gas de cocina (kg CO2e/mes)','Agua (kg CO2e/mes)','Residuos (kg CO2e/mes)','Alimentación (kg CO2e/mes)','Papel (kg CO2e/mes)','Total (kg CO2e/mes)','Total (t CO2e/año)','Compromisos'];
+function vals(r,i){
+  return [i+1,r.t,r.nombre,r.grado,r.modo,r.dist,r.dias,r.pers,r.kwh,r.cil,r.agua,r.bolsas,r.carne,r.hojas,
+    r.k.transporte,r.k.energia,r.k.gas,r.k.agua,r.k.residuos,r.k.alimentos,r.k.papel,r.tot,r.anio,r.comp];
+}
+function renderLog(){
+  var has=rows.length>0;
+  $('#tablewrap').hidden=!has; $('#log-empty').hidden=has;
+  ['#b-xlsx','#b-csv','#b-clear'].forEach(function(s){$(s).disabled=!has});
+  if(has){
+    var h='<thead><tr><th>N°</th><th>Fecha</th><th>Nombre completo</th><th>Grado</th>'+CATS.map(function(c){return '<th>'+c.n+'</th>'}).join('')+'<th>Total kg/mes</th><th>Total t/año</th><th></th></tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      h+='<tr><td>'+(i+1)+'</td><td>'+esc(r.t)+'</td><td>'+esc(r.nombre)+'</td><td>'+esc(r.grado)+'</td>'+CATS.map(function(c){return '<td>'+fmtN(r.k[c.k],1)+'</td>'}).join('')+
+        '<td class="tot">'+fmtN(r.tot,1)+'</td><td>'+fmtN(r.anio,2)+'</td><td><button class="xbtn" type="button" data-i="'+i+'" aria-label="Borrar medición '+(i+1)+'">×</button></td></tr>';
+    });
+    $('#tbl').innerHTML=h+'</tbody>';
+  }
+  drawTrend();
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function drawTrend(){
+  var el=$('#trend');
+  if(rows.length<2){el.innerHTML=rows.length?'<p class="hint">Guarda al menos dos mediciones para ver cómo cambia tu huella.</p>':'';return;}
+  var W=640,H=210,pl=46,pr=18,pt=20,pb=30,n=rows.length;
+  var vals=rows.map(function(r){return r.tot}),mx=(Math.max.apply(null,vals)||1)*1.15;
+  var x=function(i){return pl+i*(W-pl-pr)/(n-1)},y=function(v){return pt+(H-pt-pb)*(1-v/mx)};
+  var g='',s=Math.ceil(n/10),k;
+  [0,0.5,1].forEach(function(f){var v=mx*f,yy=y(v);g+='<line class="gl" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+yy+'" y2="'+yy+'"/><text x="'+(pl-8)+'" y="'+(yy+4)+'" text-anchor="end">'+fmtN(v,0)+'</text>';});
+  var path='',area='M'+x(0)+' '+y(0);
+  vals.forEach(function(v,i){path+=(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);area+='L'+x(i).toFixed(1)+' '+y(v).toFixed(1)});
+  area+='L'+x(n-1)+' '+y(0)+'Z';
+  var dots='',xl='';
+  vals.forEach(function(v,i){
+    dots+='<circle class="pt'+(i===n-1?' last':'')+'" cx="'+x(i).toFixed(1)+'" cy="'+y(v).toFixed(1)+'" r="'+(i===n-1?5:4)+'"><title>Medición '+(i+1)+': '+fmtN(v,1)+' kg/mes</title></circle>';
+    if(i%s===0||i===n-1) xl+='<text x="'+x(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle">'+(i+1)+'</text>';
+  });
+  var last=vals[n-1];
+  el.innerHTML='<p class="trendtitle">Total mensual en cada medición (kg CO₂e)</p><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Evolución de tu huella en '+n+' mediciones">'+g+'<path class="ar" d="'+area+'"/><path class="ln" d="'+path+'"/>'+dots+
+    '<text class="lab" x="'+Math.min(x(n-1),W-pr-10)+'" y="'+(y(last)-12)+'" text-anchor="end">'+fmtN(last,1)+'</text>'+xl+'</svg>';
+}
+
+/* ---------- Descargas ---------- */
+var DL=null;
+function toast(t){var el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(function(){el.classList.remove('show')},2400)}
+function fileStamp(){return stamp().slice(0,10)}
+function csvCell(v){
+  if(v===''||v==null) return '';
+  var s=typeof v==='number'?String(v).replace('.',','):String(v);
+  if(/[;"\r\n]/.test(s)) s='"'+s.replace(/"/g,'""')+'"';
+  return s;
+}
+function buildCsv(){
+  var L=[HEAD.map(csvCell).join(';')];
+  rows.forEach(function(r,i){L.push(vals(r,i).map(csvCell).join(';'))});
+  return '﻿'+L.join('\r\n');
+}
+function buildXlsx(){
+  var X=window.XLSX; if(!X) return null;
+  var data=[HEAD].concat(rows.map(vals));
+  var ws=X.utils.aoa_to_sheet(data);
+  ws['!cols']=HEAD.map(function(h,i){return {wch:i===1?17:i===23?40:Math.max(11,Math.min(26,h.length+2))}});
+  ws['!freeze']={xSplit:0,ySplit:1};
+  var wb=X.utils.book_new();
+  X.utils.book_append_sheet(wb,ws,'Mediciones');
+  var fa=[['Factor','Valor','Unidad']].concat(FLAB.map(function(a){return [a[1],F[a[0]],a[2]]}));
+  var wf=X.utils.aoa_to_sheet(fa); wf['!cols']=[{wch:30},{wch:10},{wch:22}];
+  X.utils.book_append_sheet(wb,wf,'Factores usados');
+  var out=X.write(wb,{bookType:'xlsx',type:'array'});
+  return new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function save(filename,data){
+  if(!DL){toast('La descarga no está disponible en esta vista');return;}
+  DL.save({filename:filename,data:data}).then(function(){toast('Archivo listo: '+filename)},function(e){
+    if(e&&e.code==='declined') return;
+    toast('No se pudo descargar ('+((e&&e.code)||'error')+')');
+  });
+}
+
+/* ---------- Eventos ---------- */
+var clearArmed=false,clearT=0;
+function bind(){
+  $('#inp').addEventListener('input',update);
+  $('#inp').addEventListener('change',update);
+  Array.prototype.forEach.call(document.querySelectorAll('.ck input'),function(i){i.addEventListener('change',update)});
+  var doSave=function(){
+    if(monthly(calc({}))<=0){toast('Completa al menos un dato antes de guardar');return;}
+    if(!$('#f-name').value.trim()){toast('Escribe tu nombre completo antes de guardar');$('#f-name').focus();return;}
+    if(rows.length>=MAXROWS){toast('El registro está lleno. Descárgalo y bórralo.');return;}
+    rows.push(snapshot()); saveRows(); renderLog();
+    toast('Medición '+rows.length+' guardada');
+  };
+  $('#b-save').addEventListener('click',doSave);
+  $('#mb-save').addEventListener('click',doSave);
+  $('#b-goto').addEventListener('click',function(){$('#log').scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'})});
+  $('#b-wipe').addEventListener('click',function(){
+    Array.prototype.forEach.call(document.querySelectorAll('#inp input,#inp select'),function(i){i.value=''});
+    Array.prototype.forEach.call(document.querySelectorAll('.ck input'),function(i){i.checked=false});
+    update(); toast('Espacios limpios');
+  });
+  $('#tbl').addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.xbtn'); if(!b) return;
+    rows.splice(parseInt(b.getAttribute('data-i'),10),1); saveRows(); renderLog(); toast('Medición borrada');
+  });
+  $('#b-clear').addEventListener('click',function(){
+    var b=$('#b-clear');
+    if(!clearArmed){clearArmed=true;b.textContent='¿Seguro? Toca otra vez para borrar todo';clearTimeout(clearT);clearT=setTimeout(function(){clearArmed=false;b.textContent='Borrar registro'},4000);return;}
+    clearArmed=false;clearTimeout(clearT);b.textContent='Borrar registro';
+    rows=[];saveRows();renderLog();toast('Registro borrado');
+  });
+  $('#b-xlsx').addEventListener('click',function(){
+    var blob=buildXlsx();
+    if(!blob){toast('Sin internet para crear .xlsx: se descarga en .csv, que Excel abre igual');save('mediciones-huella-'+fileStamp()+'.csv',buildCsv());return;}
+    save('mediciones-huella-'+fileStamp()+'.xlsx',blob);
+  });
+  $('#b-csv').addEventListener('click',function(){save('mediciones-huella-'+fileStamp()+'.csv',buildCsv())});
+  $('#b-copy').addEventListener('click',function(){
+    var t=buildCsv().replace(/^﻿/,'').replace(/;/g,'\t');
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function(){toast('Tabla copiada. Pégala en tu hoja de cálculo')},function(){toast('No se pudo copiar')});
+    else toast('No se pudo copiar');
+  });
+}
+function localSave(o){
+  return new Promise(function(res,rej){
+    try{
+      var blob=(o.data instanceof Blob)?o.data:new Blob([o.data],{type:'text/csv;charset=utf-8'});
+      var url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download=o.filename;document.body.appendChild(a);a.click();
+      setTimeout(function(){URL.revokeObjectURL(url);a.remove()},1500);
+      res({status:'saved'});
+    }catch(e){rej({code:'unavailable'})}
+  });
+}
+function initDownloads(){DL={save:localSave};}
+build();loadRows();bind();renderLog();update();initDownloads();
+})();
+</script>
+
+</body></html>
